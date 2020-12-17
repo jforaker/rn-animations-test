@@ -1,111 +1,159 @@
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Button,
-  Platform,
+  Easing,
   StyleSheet,
-  View,
+  SafeAreaView,
+  Dimensions,
+  Animated,
 } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { getStatusBarHeight } from 'react-native-status-bar-height';
+import FlipView from 'react-native-flip-view-next';
+import cards from './Cards';
+import { Controls } from '../components';
 
-import React                from 'react';
-import cards                from './Cards';
-import {StatusBar}          from 'expo-status-bar';
-import {getStatusBarHeight} from 'react-native-status-bar-height';
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const FLIP_DURATION = 555;
 
+const xOffset = new Animated.Value(0);
 
-const Btn = (props) => {
-  return <Button style={styles.btn} {...props} />;
-}
+const onScroll = Animated.event(
+  [{ nativeEvent: { contentOffset: { x: xOffset } } }],
+  { useNativeDriver: true }
+);
 
-class AnimationTest extends React.Component {
-  constructor(props) {
-    super(props);
+const rotateTransform = (index) => {
+  return {
+    transform: [
+      {
+        rotate: xOffset.interpolate({
+          inputRange: [
+            (index - 1) * SCREEN_WIDTH,
+            index * SCREEN_WIDTH,
+            (index + 1) * SCREEN_WIDTH,
+          ],
+          outputRange: ['7deg', '0deg', '-7deg'],
+        }),
+      },
+    ],
+  };
+};
 
-    this.state = {
-      index:            0,
-      side:             'front',
-      statusBarHeight:  getStatusBarHeight(),
+const AnimationTest = () => {
+  const [index, setIndex] = useState(0);
+  const [side, setSide] = useState('front');
+  const [xPositions, setXPosition] = useState([]);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const scrollViewRef = useRef(null);
+  const marginTop = getStatusBarHeight();
+
+  const toggleSide = () => {
+    if (!isFlipping) {
+      setIsFlipping(true);
+      setSide(side === 'front' ? 'back' : 'front');
+    }
+  };
+
+  const prevCard = async () => {
+    if (index <= 0 || isFlipping) {
+      return;
+    }
+
+    setIndex(index - 1);
+  };
+
+  const nextCard = async () => {
+    if (index >= cards.length - 1 || isFlipping) {
+      return;
+    }
+
+    setIndex(index + 1);
+  };
+
+  useEffect(() => {
+    let pause;
+    const handlePaging = (idx) => {
+      const x = xPositions.find((el) => el.idx === idx)?.x;
+
+      if (typeof x === 'undefined') return;
+      scrollViewRef.current?.scrollTo({
+        x,
+        y: 0,
+        animated: true,
+      });
     };
-  }
 
-  render = () => {
-    const index    = this.state.index;
-    const side     = this.state.side;
-    const cardFace = cards[index][side];
-
-    const bodyStyles = {marginTop: this.state.statusBarHeight};
-    const ctrlStyles = {};
-    if (Platform.OS === 'ios') {
-      ctrlStyles.marginBottom = 15;
-    }
-
-    const btns = [];
-    if (index > 0) {
-      btns.push(<Btn key='prev' title='<<' onPress={this.prevCard} />);
+    if (side === 'back') {
+      setSide('front');
+      pause = setTimeout(() => handlePaging(index), FLIP_DURATION / 2);
     } else {
-      btns.push(<Btn key='prev' title='<<' disabled={true} />);
-    }
-    if (side === 'front') {
-      btns.push(<Btn key='flip' title='Reveal Answer' onPress={this.toggleSide} />);
-    } else {
-      btns.push(<Btn key='flip' title='Reveal Question' onPress={this.toggleSide} />);
-    }
-    if (index < cards.length - 1) {
-      btns.push(<Btn key='next' title='>>' onPress={this.nextCard} />);
-    } else {
-      btns.push(<Btn key='next' title='>>' disabled={true} />);
+      handlePaging(index);
     }
 
-    return (
-      <View style={styles.container}>
-        <StatusBar hidden={false} barStyle='dark-content'/>
+    return () => clearTimeout(pause);
+  }, [index]);
 
-        <View style={[bodyStyles, styles.body]}>
-          {cardFace}
-        </View>
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar hidden={false} barStyle="dark-content" />
 
-        <View style={[ctrlStyles, styles.ctrls]}>
-          {btns}
-        </View>
-      </View>
-    );
-  };
+      <Animated.ScrollView
+        ref={scrollViewRef}
+        onScroll={onScroll}
+        scrollEnabled={false} // to be controlled programatically instead
+        horizontal
+        style={[{ marginTop }, styles.scrollView]}
+      >
+        {cards.map(({ front, back }, idx) => (
+          <Animated.View
+            key={idx}
+            style={[styles.body, rotateTransform(idx)]}
+            onLayout={({ nativeEvent }) => {
+              const { x } = nativeEvent.layout;
+              if (xPositions.some((el) => el.idx === idx)) return;
+              // On layout, set an array of objects that represents index and x value from right to left-most card
+              // and enable a call to ScrollView.scrollTo(x), for ex: [{ idx: 0, x: 0}, { idx: 1, x: 220}]
+              setXPosition((prev) => [...prev, { idx, x }]);
+            }}
+          >
+            <FlipView
+              key={idx}
+              style={styles.flipView}
+              front={front}
+              back={back}
+              isFlipped={side === 'back'}
+              flipAxis="y"
+              flipEasing={Easing.elastic(1.125)}
+              flipDuration={FLIP_DURATION}
+              perspective={3000}
+              onFlipEnd={() => setIsFlipping(false)}
+            />
+          </Animated.View>
+        ))}
+      </Animated.ScrollView>
 
-  toggleSide = () => {
-    const side = this.state.side;
-    this.setState({side: side === 'front' ? 'back' : 'front'});
-  };
-
-  prevCard = () => {
-    if (this.state.index <= 0) { return; }
-
-    this.setState({index: this.state.index - 1, side: 'front'});
-  };
-
-  nextCard = () => {
-    if (this.state.index >= cards.length - 1) { return; }
-
-    this.setState({index: this.state.index + 1, side: 'front'});
-  };
-}
+      <Controls
+        values={{ index, isFlipping, len: cards.length, side }}
+        events={{ prevCard, nextCard, toggleSide }}
+      />
+    </SafeAreaView>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    flex:            1,
-    flexDirection:   'column',
+    flex: 1,
+    flexDirection: 'column',
+  },
+  flipView: {
+    flex: 1,
   },
   body: {
-    flex:    1,
+    flex: 1,
     padding: 7,
-  },
-  ctrls: {
-    padding: 7,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  btn: {
-    marginLeft:  3,
-    marginRight: 3,
+    width: SCREEN_WIDTH,
   },
 });
 
-export {AnimationTest as default};
+export { AnimationTest as default };

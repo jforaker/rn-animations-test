@@ -1,6 +1,8 @@
 import AnimationTest from './app/AnimationTest';
-import React         from 'react';
+import React from 'react';
+
+console.disableYellowBox = true;
 
 const App = () => <AnimationTest />;
 
-export {App as default};
+export { App as default };

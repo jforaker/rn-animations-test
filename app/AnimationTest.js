@@ -14,10 +14,11 @@ import cards from './Cards';
 import { Controls } from '../components';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const FLIP_DURATION = 600;
-const marginTop = getStatusBarHeight();
+const FLIP_DURATIONS = { front: 375, back: 625 };
+const SB_HEIGHT = getStatusBarHeight();
 
 const xOffset = new Animated.Value(0);
+
 const onScroll = Animated.event(
   [{ nativeEvent: { contentOffset: { x: xOffset } } }],
   { useNativeDriver: true }
@@ -90,11 +91,14 @@ const AnimationTest = () => {
     };
 
     if (side === 'back') {
+      // when the index is moved while viewing the answer, quickly flip the card back to the question side,
+      // let the flip animation finish, then animate the paging forward or backward
       setSide('front');
-      (async () => {
-        await new Promise((r) => setTimeout(r, FLIP_DURATION - 100));
+      const delayPaging = async () => {
+        await new Promise((r) => setTimeout(r, FLIP_DURATIONS.front + 100));
         handlePaging(index);
-      })();
+      };
+      delayPaging();
     } else {
       handlePaging(index);
     }
@@ -113,7 +117,7 @@ const AnimationTest = () => {
         scrollEventThrottle={16}
         horizontal
         pagingEnabled
-        style={{ marginTop }}
+        style={{ marginTop: SB_HEIGHT }}
       >
         {cards.map(({ front, back }, idx) => {
           const isBack = side === 'back';
@@ -134,9 +138,10 @@ const AnimationTest = () => {
                 front={front}
                 back={back}
                 isFlipped={isBack}
-                flipAxis="y"
-                flipEasing={isBack ? Easing.cubic : Easing.elastic(1.15)}
-                flipDuration={isBack ? FLIP_DURATION / 2 : FLIP_DURATION}
+                flipEasing={isBack ? Easing.cubic : Easing.elastic(1.125)}
+                flipDuration={
+                  isBack ? FLIP_DURATIONS.front : FLIP_DURATIONS.back
+                }
                 perspective={3000}
                 onFlipEnd={() => setIsFlipping(false)}
               />

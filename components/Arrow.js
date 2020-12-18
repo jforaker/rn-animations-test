@@ -4,8 +4,8 @@ import TouchableScale from 'react-native-touchable-scale';
 import { Feather } from '@expo/vector-icons';
 import propTypes from 'prop-types';
 
-export const Arrow = ({ name, ...props }) => {
-  const color = props.disabled ? '#d3d3d3' : '#0E7AFE';
+export const Arrow = ({ name, disabled, onPress }) => {
+  const color = disabled ? '#d3d3d3' : '#0E7AFE';
   return (
     <TouchableScale
       tension={10}
@@ -13,7 +13,8 @@ export const Arrow = ({ name, ...props }) => {
       useNativeDriver
       activeScale={0.85}
       style={styles.arrow}
-      {...props}
+      disabled={disabled}
+      onPress={onPress}
     >
       <Feather name={name} size={35} color={color} />
     </TouchableScale>

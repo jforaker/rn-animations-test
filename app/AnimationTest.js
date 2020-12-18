@@ -9,29 +9,37 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { getStatusBarHeight } from 'react-native-status-bar-height';
 import FlipView from 'react-native-flip-view-next';
+
 import cards from './Cards';
 import { Controls } from '../components';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const FLIP_DURATION = 555;
+const FLIP_DURATION = 600;
+const marginTop = getStatusBarHeight();
 
 const xOffset = new Animated.Value(0);
-
 const onScroll = Animated.event(
   [{ nativeEvent: { contentOffset: { x: xOffset } } }],
   { useNativeDriver: true }
 );
 
-const rotateTransform = (index) => {
+const transformRotate = (index) => {
+  const inputRange = [
+    (index - 1) * SCREEN_WIDTH,
+    index * SCREEN_WIDTH,
+    (index + 1) * SCREEN_WIDTH,
+  ];
   return {
     transform: [
       {
+        scale: xOffset.interpolate({
+          inputRange,
+          outputRange: [0.8, 1, 0.8],
+        }),
+      },
+      {
         rotate: xOffset.interpolate({
-          inputRange: [
-            (index - 1) * SCREEN_WIDTH,
-            index * SCREEN_WIDTH,
-            (index + 1) * SCREEN_WIDTH,
-          ],
+          inputRange,
           outputRange: ['7deg', '0deg', '-7deg'],
         }),
       },
@@ -45,7 +53,6 @@ const AnimationTest = () => {
   const [xPositions, setXPosition] = useState([]);
   const [isFlipping, setIsFlipping] = useState(false);
   const scrollViewRef = useRef(null);
-  const marginTop = getStatusBarHeight();
 
   const toggleSide = () => {
     if (!isFlipping) {
@@ -54,7 +61,7 @@ const AnimationTest = () => {
     }
   };
 
-  const prevCard = async () => {
+  const prevCard = () => {
     if (index <= 0 || isFlipping) {
       return;
     }
@@ -62,7 +69,7 @@ const AnimationTest = () => {
     setIndex(index - 1);
   };
 
-  const nextCard = async () => {
+  const nextCard = () => {
     if (index >= cards.length - 1 || isFlipping) {
       return;
     }
@@ -71,7 +78,6 @@ const AnimationTest = () => {
   };
 
   useEffect(() => {
-    let pause;
     const handlePaging = (idx) => {
       const x = xPositions.find((el) => el.idx === idx)?.x;
 
@@ -85,12 +91,15 @@ const AnimationTest = () => {
 
     if (side === 'back') {
       setSide('front');
-      pause = setTimeout(() => handlePaging(index), FLIP_DURATION / 2);
+      (async () => {
+        await new Promise((r) => setTimeout(r, FLIP_DURATION - 100));
+        handlePaging(index);
+      })();
     } else {
       handlePaging(index);
     }
 
-    return () => clearTimeout(pause);
+    return () => {};
   }, [index]);
 
   return (
@@ -101,39 +110,45 @@ const AnimationTest = () => {
         ref={scrollViewRef}
         onScroll={onScroll}
         scrollEnabled={false} // to be controlled programatically instead
+        scrollEventThrottle={16}
         horizontal
-        style={[{ marginTop }, styles.scrollView]}
+        pagingEnabled
+        style={{ marginTop }}
       >
-        {cards.map(({ front, back }, idx) => (
-          <Animated.View
-            key={idx}
-            style={[styles.body, rotateTransform(idx)]}
-            onLayout={({ nativeEvent }) => {
-              const { x } = nativeEvent.layout;
-              if (xPositions.some((el) => el.idx === idx)) return;
-              // On layout, set an array of objects that represents index and x value from right to left-most card
-              // and enable a call to ScrollView.scrollTo(x), for ex: [{ idx: 0, x: 0}, { idx: 1, x: 220}]
-              setXPosition((prev) => [...prev, { idx, x }]);
-            }}
-          >
-            <FlipView
+        {cards.map(({ front, back }, idx) => {
+          const isBack = side === 'back';
+          return (
+            <Animated.View
               key={idx}
-              style={styles.flipView}
-              front={front}
-              back={back}
-              isFlipped={side === 'back'}
-              flipAxis="y"
-              flipEasing={Easing.elastic(1.125)}
-              flipDuration={FLIP_DURATION}
-              perspective={3000}
-              onFlipEnd={() => setIsFlipping(false)}
-            />
-          </Animated.View>
-        ))}
+              style={[styles.body, transformRotate(idx)]}
+              onLayout={({ nativeEvent }) => {
+                const { x } = nativeEvent.layout;
+                if (xPositions.some((el) => el.idx === idx)) return;
+                // On layout, set an array of objects that represents index and x value from right to left-most card
+                // and enable a call to ScrollView.scrollTo(x), for ex: [{ idx: 0, x: 0}, { idx: 1, x: 220}]
+                setXPosition((prev) => [...prev, { idx, x }]);
+              }}
+            >
+              <FlipView
+                style={styles.flipView}
+                front={front}
+                back={back}
+                isFlipped={isBack}
+                flipAxis="y"
+                flipEasing={isBack ? Easing.cubic : Easing.elastic(1.15)}
+                flipDuration={isBack ? FLIP_DURATION / 2 : FLIP_DURATION}
+                perspective={3000}
+                onFlipEnd={() => setIsFlipping(false)}
+              />
+            </Animated.View>
+          );
+        })}
       </Animated.ScrollView>
 
       <Controls
-        values={{ index, isFlipping, len: cards.length, side }}
+        index={index}
+        len={cards.length}
+        side={side}
         events={{ prevCard, nextCard, toggleSide }}
       />
     </SafeAreaView>

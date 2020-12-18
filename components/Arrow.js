@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet } from 'react-native';
 import TouchableScale from 'react-native-touchable-scale';
 import { Feather } from '@expo/vector-icons';
+import propTypes from 'prop-types';
 
 export const Arrow = ({ name, ...props }) => {
   const color = props.disabled ? '#d3d3d3' : '#0E7AFE';
@@ -27,3 +28,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
+
+Arrow.propTypes = {
+  name: propTypes.string.isRequired,
+  disabled: propTypes.bool,
+  onPress: propTypes.func.isRequired,
+};

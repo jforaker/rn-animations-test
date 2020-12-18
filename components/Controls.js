@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button, Platform, View, StyleSheet } from 'react-native';
+import propTypes from 'prop-types';
 
 import { Arrow } from './Arrow';
 
@@ -10,7 +11,9 @@ if (Platform.OS === 'ios') {
 }
 
 export const Controls = ({
-  values: { index, isFlipping, side, len },
+  index,
+  side,
+  len,
   events: { toggleSide, prevCard, nextCard },
 }) => {
   const disableLeft = index === 0;
@@ -24,9 +27,7 @@ export const Controls = ({
         disabled={disableLeft}
         onPress={prevCard}
       />
-      <View>
-        <Button title={revealText} onPress={toggleSide} disabled={isFlipping} />
-      </View>
+      <Button title={revealText} onPress={toggleSide} />
       <Arrow
         name="arrow-right-circle"
         disabled={disableRight}
@@ -43,3 +44,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
 });
+
+Controls.propTypes = {
+  index: propTypes.number.isRequired,
+  side: propTypes.oneOf(['front', 'back']),
+  len: propTypes.number.isRequired,
+  events: propTypes.shape({
+    toggleSide: propTypes.func.isRequired,
+    prevCard: propTypes.func.isRequired,
+    nextCard: propTypes.func.isRequired,
+  }),
+};
